@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: giftapp
+  labels:
+    app: giftapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: giftapp
+  template:
+    metadata:
+      labels:
+        app: giftapp
+    spec:
+      # Pod-level security context
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: icr
+
+      containers:
+        - name: giftapp-container
+          image: <the-name-of-your-image>
+          ports:
+            - containerPort: 3060
+
+          env:
+            - name: NODE_ENV
+              value: "production"
+          # create the secret before applying this file, e.g.:
+          #   kubectl create secret generic giftapp-secrets \
+          #     --from-literal=MONGO_URL=mongodb://root:<same-password-as-mongodb-secrets>@mongodb-service:27017 \
+          #     --from-literal=JWT_SECRET=<long-random-string>
+          # host is the mongodb-service Service name (see deploymongo.yml), not localhost/an ip
+          envFrom:
+            - secretRef:
+                name: giftapp-secrets
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3060
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3060
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          # Container-level security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gift-app-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 3060
+      protocol: TCP
+  selector:
+    app: giftapp
