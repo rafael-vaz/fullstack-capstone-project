@@ -57,9 +57,8 @@ function LoginPage() {
 			//Step 2: Task 4
 	      navigate('/app');
         } else {
-			//Step 2: Task 5
-          document.getElementById("email").value="";
-          document.getElementById("password").value="";
+          setEmail("");
+          setPassword("");
           setIncorrect("Wrong password. Try again.");
           setTimeout(() => {
             setIncorrect("");

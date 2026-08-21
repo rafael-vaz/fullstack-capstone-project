@@ -5,7 +5,9 @@ import {urlConfig} from '../../config';
 
 function SearchPage() {
     const [searchQuery, setSearchQuery] = useState('');
-    const [ageRange, setAgeRange] = useState(6); // Initialize with minimum value
+    const [ageRange, setAgeRange] = useState(6); // minimum value
+    const [category, setCategory] = useState('');
+    const [condition, setCondition] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const categories = ['Living', 'Bedroom', 'Bathroom', 'Kitchen', 'Office'];
     const conditions = ['New', 'Like New', 'Older'];
@@ -38,8 +40,8 @@ function SearchPage() {
         const queryParams = new URLSearchParams({
             name: searchQuery,
             age_years: ageRange,
-            category: document.getElementById('categorySelect').value,
-            condition: document.getElementById('conditionSelect').value,
+            category: category,
+            condition: condition,
         }).toString();
 
         try {
@@ -69,19 +71,29 @@ function SearchPage() {
                         <div className="d-flex flex-column">
                             {/* Category Dropdown */}
                             <label htmlFor="categorySelect">Category</label>
-                            <select id="categorySelect" className="form-control my-1">
+                            <select
+                                id="categorySelect"
+                                className="form-control my-1"
+                                value={category}
+                                onChange={e => setCategory(e.target.value)}
+                            >
                                 <option value="">All</option>
-                                {categories.map(category => (
-                                    <option key={category} value={category}>{category}</option>
+                                {categories.map(categoryOption => (
+                                    <option key={categoryOption} value={categoryOption}>{categoryOption}</option>
                                 ))}
                             </select>
 
                             {/* Condition Dropdown */}
                             <label htmlFor="conditionSelect">Condition</label>
-                            <select id="conditionSelect" className="form-control my-1">
+                            <select
+                                id="conditionSelect"
+                                className="form-control my-1"
+                                value={condition}
+                                onChange={e => setCondition(e.target.value)}
+                            >
                                 <option value="">All</option>
-                                {conditions.map(condition => (
-                                    <option key={condition} value={condition}>{condition}</option>
+                                {conditions.map(conditionOption => (
+                                    <option key={conditionOption} value={conditionOption}>{conditionOption}</option>
                                 ))}
                             </select>
 
