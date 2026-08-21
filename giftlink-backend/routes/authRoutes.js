@@ -1,36 +1,27 @@
 const express = require('express');
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { validationResult } = require('express-validator');
 const connectToDatabase = require('../models/db');
+const logger = require('../logger');
+
 const router = express.Router();
-const dotenv = require('dotenv');
-const pino = require('pino');  // Importar o logger Pino
-
-//Tarefa 1: Use o `body`, `validationResult` do `express-validator` para validação de entrada
-const { body, validationResult } = require('express-validator');
-
-
-const logger = pino();  // Criar uma instância do logger Pino
-
-dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 router.post('/register', async (req, res) => {
     try {
-      //Conectar ao `giftsdb` no MongoDB através de `connectToDatabase` em `db.js`.
-	  const db = await connectToDatabase();
-      const collection = db.collection("users");
-      const existingEmail = await collection.findOne({ email: req.body.email });
+        const db = await connectToDatabase();
+        const collection = db.collection("users");
+        const existingEmail = await collection.findOne({ email: req.body.email });
 
         if (existingEmail) {
-            logger.error('O ID de email já existe');
-            return res.status(400).json({ error: 'O ID de email já existe' });
+            logger.error('Email id already exists');
+            return res.status(400).json({ error: 'Email id already exists' });
         }
 
         const salt = await bcryptjs.genSalt(10);
         const hash = await bcryptjs.hash(req.body.password, salt);
-        const email=req.body.email;
-        console.log('o email é',email);
+        const email = req.body.email;
         const newUser = await collection.insertOne({
             email: req.body.email,
             firstName: req.body.firstName,
@@ -46,30 +37,27 @@ router.post('/register', async (req, res) => {
         };
 
         const authtoken = jwt.sign(payload, JWT_SECRET);
-        logger.info('Usuário registrado com sucesso');
-        res.json({ authtoken,email });
+        logger.info('User registered successfully');
+        res.json({ authtoken, email });
     } catch (e) {
         logger.error(e);
-        return res.status(500).send('Erro interno do servidor');
+        return res.status(500).send('Internal server error');
     }
 });
 
 router.post('/login', async (req, res) => {
-    console.log("\n\n Dentro do login")
-
     try {
-        // const collection = await connectToDatabase();
         const db = await connectToDatabase();
         const collection = db.collection("users");
         const theUser = await collection.findOne({ email: req.body.email });
 
         if (theUser) {
-            let result = await bcryptjs.compare(req.body.password, theUser.password)
-            if(!result) {
-                logger.error('As senhas não coincidem');
-                return res.status(404).json({ error: 'Senha incorreta' });
+            const result = await bcryptjs.compare(req.body.password, theUser.password);
+            if (!result) {
+                logger.error('Passwords do not match');
+                return res.status(404).json({ error: 'Wrong password' });
             }
-            let payload = {
+            const payload = {
                 user: {
                     id: theUser._id.toString(),
                 },
@@ -79,27 +67,22 @@ router.post('/login', async (req, res) => {
             const userEmail = theUser.email;
 
             const authtoken = jwt.sign(payload, JWT_SECRET);
-            logger.info('Usuário logado com sucesso');
+            logger.info('User logged in successfully');
             return res.status(200).json({ authtoken, userName, userEmail });
         } else {
-            logger.error('Usuário não encontrado');
-            return res.status(404).json({ error: 'Usuário não encontrado' });
+            logger.error('User not found');
+            return res.status(404).json({ error: 'User not found' });
         }
     } catch (e) {
         logger.error(e);
-        return res.status(500).json({ error: 'Erro interno do servidor', details: e.message });
-      }
+        return res.status(500).json({ error: 'Internal server error', details: e.message });
+    }
 });
 
-// API de atualização
 router.put('/update', async (req, res) => {
-	// Tarefa 2: Valide a entrada usando `validationResult` e retorne uma mensagem apropriada se houver um erro.
-
     const errors = validationResult(req);
-
-	// Tarefa 3: Verifique se o `email` está presente no cabeçalho e lance uma mensagem de erro apropriada se não estiver presente.
-	if (!errors.isEmpty()) {
-        logger.error('Erros de validação na solicitação de atualização', errors.array());
+    if (!errors.isEmpty()) {
+        logger.error('Validation errors in update request', errors.array());
         return res.status(400).json({ errors: errors.array() });
     }
 
@@ -107,33 +90,28 @@ router.put('/update', async (req, res) => {
         const email = req.headers.email;
 
         if (!email) {
-            logger.error('Email não encontrado nos cabeçalhos da solicitação');
-            return res.status(400).json({ error: "Email não encontrado nos cabeçalhos da solicitação" });
-		}
+            logger.error('Email not found in request headers');
+            return res.status(400).json({ error: "Email not found in request headers" });
+        }
 
-		//Tarefa 4: Conectar ao MongoDB
-		const db = await connectToDatabase();
+        const db = await connectToDatabase();
         const collection = db.collection("users");
-
-		//Tarefa 5: Encontrar credenciais do usuário
         const existingUser = await collection.findOne({ email });
 
         if (!existingUser) {
-            logger.error('Usuário não encontrado');
-            return res.status(404).json({ error: "Usuário não encontrado" });
+            logger.error('User not found');
+            return res.status(404).json({ error: "User not found" });
         }
 
         existingUser.firstName = req.body.name;
         existingUser.updatedAt = new Date();
 
-		//Tarefa 6: Atualizar credenciais do usuário no BD
         const updatedUser = await collection.findOneAndUpdate(
             { email },
             { $set: existingUser },
             { returnDocument: 'after' }
         );
 
-		//Tarefa 7: Criar autenticação JWT com user._id como payload usando a chave secreta do arquivo .env
         const payload = {
             user: {
                 id: updatedUser._id.toString(),
@@ -141,12 +119,13 @@ router.put('/update', async (req, res) => {
         };
 
         const authtoken = jwt.sign(payload, JWT_SECRET);
-        logger.info('Usuário atualizado com sucesso');
+        logger.info('User updated successfully');
 
         res.json({ authtoken });
     } catch (error) {
         logger.error(error);
-        return res.status(500).send("Erro interno do servidor");
+        return res.status(500).send("Internal server error");
     }
 });
-module.exports = router;  
+
+module.exports = router;
